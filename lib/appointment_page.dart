@@ -247,104 +247,123 @@ class _AppointmentPageState extends State<AppointmentPage> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "Información del paciente",
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 10),
-                    TextFormField(
-                      controller: nameController,
-                      decoration: InputDecoration(
-                        labelText: "Nombre completo",
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          : GestureDetector(
+              onTap: () => FocusScope.of(context).unfocus(), // dismiss keyboard on tap outside
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "Información del paciente",
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
-                      validator: (v) => v == null || v.isEmpty ? "Campo requerido" : null,
-                    ),
-                    const SizedBox(height: 20),
-
-                    DropdownButtonFormField<String>(
-                      value: selectedSpecialist,
-                      decoration: InputDecoration(
-                        labelText: "Especialista",
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        controller: nameController,
+                        decoration: InputDecoration(
+                          labelText: "Nombre completo",
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        validator: (v) => v == null || v.isEmpty ? "Campo requerido" : null,
                       ),
-                      items: specialists
-                          .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                          .toList(),
-                      onChanged: (value) => setState(() => selectedSpecialist = value),
-                      validator: (value) => value == null ? "Selecciona un especialista" : null,
-                    ),
-                    const SizedBox(height: 20),
+                      const SizedBox(height: 20),
 
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            selectedDate == null
-                                ? "Selecciona una fecha"
-                                : "Fecha: ${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}",
+                      DropdownButtonFormField<String>(
+                        value: selectedSpecialist,
+                        decoration: InputDecoration(
+                          labelText: "Especialista",
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        items: specialists
+                            .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                            .toList(),
+                        onChanged: (value) => setState(() => selectedSpecialist = value),
+                        validator: (value) => value == null ? "Selecciona un especialista" : null,
+                      ),
+                      const SizedBox(height: 20),
+
+                      Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onLongPress: () {
+                                setState(() => selectedDate = null);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Fecha limpiada')),
+                                );
+                              },
+                              child: Text(
+                                selectedDate == null
+                                    ? "Selecciona una fecha"
+                                    : "Fecha: ${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}",
+                              ),
+                            ),
+                          ),
+                          ElevatedButton(
+                            onPressed: _selectDate,
+                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0072FF)),
+                            child: const Text("Elegir fecha", style: TextStyle(color: Colors.white)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+
+                      Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onLongPress: () {
+                                setState(() => selectedTime = null);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Hora limpiada')),
+                                );
+                              },
+                              child: Text(
+                                selectedTime == null
+                                    ? "Selecciona una hora"
+                                    : "Hora: ${selectedTime!.format(context)}",
+                              ),
+                            ),
+                          ),
+                          ElevatedButton(
+                            onPressed: _selectTime,
+                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0072FF)),
+                            child: const Text("Elegir hora", style: TextStyle(color: Colors.white)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+
+                      TextFormField(
+                        controller: reasonController,
+                        maxLines: 3,
+                        decoration: InputDecoration(
+                          labelText: "Motivo de la consulta",
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        validator: (v) => v == null || v.isEmpty ? "Campo requerido" : null,
+                      ),
+                      const SizedBox(height: 30),
+
+                      Center(
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.check_circle, color: Colors.white),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0072FF),
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          ),
+                          onPressed: _saveAppointment,
+                          label: Text(
+                            _isEditing ? "Guardar cambios" : "Guardar Cita",
+                            style: const TextStyle(color: Colors.white, fontSize: 16),
                           ),
                         ),
-                        ElevatedButton(
-                          onPressed: _selectDate,
-                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0072FF)),
-                          child: const Text("Elegir fecha", style: TextStyle(color: Colors.white)),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            selectedTime == null
-                                ? "Selecciona una hora"
-                                : "Hora: ${selectedTime!.format(context)}",
-                          ),
-                        ),
-                        ElevatedButton(
-                          onPressed: _selectTime,
-                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0072FF)),
-                          child: const Text("Elegir hora", style: TextStyle(color: Colors.white)),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-
-                    TextFormField(
-                      controller: reasonController,
-                      maxLines: 3,
-                      decoration: InputDecoration(
-                        labelText: "Motivo de la consulta",
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      validator: (v) => v == null || v.isEmpty ? "Campo requerido" : null,
-                    ),
-                    const SizedBox(height: 30),
-
-                    Center(
-                      child: ElevatedButton.icon(
-                        icon: const Icon(Icons.check_circle, color: Colors.white),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0072FF),
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                        ),
-                        onPressed: _saveAppointment,
-                        label: Text(
-                          _isEditing ? "Guardar cambios" : "Guardar Cita",
-                          style: const TextStyle(color: Colors.white, fontSize: 16),
-                        ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

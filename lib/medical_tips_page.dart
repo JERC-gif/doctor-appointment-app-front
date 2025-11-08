@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/services.dart';
 
 class MedicalTipsPage extends StatefulWidget {
   const MedicalTipsPage({super.key});
@@ -96,19 +97,43 @@ class _MedicalTipsPageState extends State<MedicalTipsPage> {
         backgroundColor: const Color(0xFF0072FF),
         foregroundColor: Colors.white,
       ),
-      body: _isLoading
-          ? const _TipsLoading()
-          : _hasError
-              ? _TipsError(
-                  errorMessage: _errorMessage,
-                  onRetry: _loadRandomTip,
-                )
-              : _currentTip == null
-                  ? const _EmptyTips()
-                  : _TipCard(
-                      tip: _currentTip!,
-                      onNext: _nextTip,
-                    ),
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onLongPress: _nextTip,
+        child: _isLoading
+            ? const _TipsLoading()
+            : _hasError
+                ? _TipsError(
+                    errorMessage: _errorMessage,
+                    onRetry: _loadRandomTip,
+                  )
+                : _currentTip == null
+                    ? const _EmptyTips()
+                    : Column(
+                        children: [
+                          const SizedBox(height: 16),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () async {
+                                final text = _currentTip?['mensaje'] ?? '';
+                                if (text.isNotEmpty) {
+                                  await Clipboard.setData(ClipboardData(text: text));
+                                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Consejo copiado al portapapeles')),
+                                  );
+                                }
+                              },
+                              child: _TipCard(
+                                tip: _currentTip!,
+                                onNext: _nextTip, // kept for compatibility inside card if used
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+      ),
     );
   }
 }
@@ -309,25 +334,6 @@ class _TipCard extends StatelessWidget {
                     ),
                   ],
                 ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 30),
-          
-          // Botón siguiente
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: onNext,
-              icon: const Icon(Icons.autorenew),
-              label: const Text('Siguiente Consejo'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0072FF),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
               ),
             ),
           ),

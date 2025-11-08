@@ -94,14 +94,47 @@ class _HomeContent extends StatefulWidget {
 class _HomeContentState extends State<_HomeContent> {
   String _userName = "Usuario";
   bool _isLoading = true;
+  int _doctorsCount = 0;
+  int _tipsCount = 0;
 
   @override
   void initState() {
     super.initState();
     _loadUserName();
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    try {
+      // Doctores
+      final doctorsSnap = await FirebaseFirestore.instance.collection('doctores').get();
+      final docsCount = doctorsSnap.docs.length;
+
+      // Consejos - try multiple possible collection names
+      int tipsCountLocal = 0;
+      try {
+        final tipsSnap = await FirebaseFirestore.instance.collection('consejos').get();
+        tipsCountLocal = tipsSnap.docs.length;
+      } catch (_) {
+        try {
+          final tipsSnap2 = await FirebaseFirestore.instance.collection('tips').get();
+          tipsCountLocal = tipsSnap2.docs.length;
+        } catch (_) {
+          tipsCountLocal = 0;
+        }
+      }
+
+      if (mounted) setState(() {
+        _doctorsCount = docsCount;
+        _tipsCount = tipsCountLocal;
+      });
+    } catch (_) {
+      // ignore errors and keep defaults
+    }
   }
 
   void _loadUserName() async {
+    setState(() => _isLoading = true);
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       try {
@@ -112,36 +145,44 @@ class _HomeContentState extends State<_HomeContent> {
         
         if (doc.exists) {
           final data = doc.data()!;
-          setState(() {
+          if (mounted) setState(() {
             _userName = data['nombre_completo'] ?? user.displayName ?? user.email ?? "Usuario";
             _isLoading = false;
           });
         } else {
-          setState(() {
+          if (mounted) setState(() {
             _userName = user.displayName ?? user.email ?? "Usuario";
             _isLoading = false;
           });
         }
       } catch (e) {
-        setState(() {
+        if (mounted) setState(() {
           _userName = user.displayName ?? user.email ?? "Usuario";
           _isLoading = false;
         });
       }
     } else {
-      setState(() {
+      if (mounted) setState(() {
         _userName = "Usuario";
         _isLoading = false;
       });
     }
   }
 
+  Future<void> _refreshHome() async {
+    await Future.wait([
+      Future.sync(() => _loadUserName()),
+      Future.sync(() => _loadStats()),
+    ]);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return RefreshIndicator(
+      onRefresh: _refreshHome,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(20),
         children: [
           // Header de bienvenida
           _buildWelcomeHeader(),
@@ -244,6 +285,9 @@ class _HomeContentState extends State<_HomeContent> {
                   MaterialPageRoute(builder: (context) => const AppointmentPage()),
                 );
               },
+              onLongPress: () {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mantén presionado para limpiar al editar citas')));
+              },
             ),
             _ActionCard(
               icon: Icons.medical_services,
@@ -255,6 +299,9 @@ class _HomeContentState extends State<_HomeContent> {
                   MaterialPageRoute(builder: (context) => const DoctorsPage()),
                 );
               },
+              onLongPress: () {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mantén presionado para marcar favoritos en la lista de doctores')));
+              },
             ),
             _ActionCard(
               icon: Icons.health_and_safety,
@@ -265,6 +312,9 @@ class _HomeContentState extends State<_HomeContent> {
                   context,
                   MaterialPageRoute(builder: (context) => const MedicalTipsPage()),
                 );
+              },
+              onLongPress: () {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Toca un consejo para copiarlo al portapapeles')));
               },
             ),
           ],
@@ -350,11 +400,11 @@ class _HomeContentState extends State<_HomeContent> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _StatItem(
-                  value: "5+",
+                  value: _doctorsCount > 0 ? '$_doctorsCount' : '—',
                   label: "Doctores\nDisponibles",
                 ),
                 _StatItem(
-                  value: "10+",
+                  value: _tipsCount > 0 ? '$_tipsCount' : '—',
                   label: "Consejos\nSalud",
                 ),
                 _StatItem(
@@ -392,18 +442,21 @@ class _ActionCard extends StatelessWidget {
   final String title;
   final Color color;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   const _ActionCard({
     required this.icon,
     required this.title,
     required this.color,
     required this.onTap,
+    this.onLongPress,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Container(
         width: 110,
         height: 110,
