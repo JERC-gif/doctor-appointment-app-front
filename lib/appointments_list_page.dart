@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
 import 'appointment_page.dart';
 
@@ -35,10 +34,194 @@ class _AppointmentsListPageState extends State<AppointmentsListPage> {
 
     if (ok == true) {
       try {
-        await FirebaseFirestore.instance.collection('citas').doc(id).delete();
+        // Actualizar el estado a "cancelada" en lugar de eliminar
+        await FirebaseFirestore.instance.collection('citas').doc(id).update({
+          'estado': 'cancelada',
+          'updated_at': FieldValue.serverTimestamp(),
+        });
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cita cancelada')));
       } catch (e) {
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al cancelar: $e')));
+      }
+    }
+  }
+
+  Future<void> _markAsCompleted(String id) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Marcar como completada'),
+        content: const Text('¿Deseas marcar esta cita como completada?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('No')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            child: const Text('Sí, completar', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (ok == true) {
+      try {
+        await FirebaseFirestore.instance.collection('citas').doc(id).update({
+          'estado': 'completada',
+          'updated_at': FieldValue.serverTimestamp(),
+        });
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cita marcada como completada')));
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al actualizar: $e')));
+      }
+    }
+  }
+
+  /// Verifica si se debe mostrar el botón de confirmar asistencia
+  /// Solo se muestra si la cita ya pasó y está pendiente
+  bool _shouldShowConfirmButton(Map<String, dynamic> data) {
+    final estado = (data['estado'] ?? 'pendiente').toString().toLowerCase();
+    
+    // Solo mostrar si está pendiente
+    if (estado != 'pendiente' && estado != '') return false;
+    
+    // Verificar si la cita ya pasó
+    DateTime? fechaCita;
+    
+    if (data['inicio_ts'] != null && data['inicio_ts'] is Timestamp) {
+      fechaCita = (data['inicio_ts'] as Timestamp).toDate();
+    } else if (data['fecha_completa'] != null && data['fecha_completa'] is Timestamp) {
+      final fecha = (data['fecha_completa'] as Timestamp).toDate();
+      final horaStr = data['hora_completa'] as String?;
+      if (horaStr != null && horaStr.contains(':')) {
+        final partes = horaStr.split(':');
+        final hora = int.tryParse(partes[0]) ?? 0;
+        final minuto = int.tryParse(partes[1]) ?? 0;
+        fechaCita = DateTime(fecha.year, fecha.month, fecha.day, hora, minuto);
+      } else {
+        fechaCita = fecha;
+      }
+    }
+    
+    if (fechaCita == null) return false;
+    
+    // La cita ya pasó si la fecha/hora es anterior a ahora
+    return fechaCita.isBefore(DateTime.now());
+  }
+
+  /// Confirma la asistencia a la cita y la marca como completada
+  Future<void> _confirmAttendance(BuildContext context, String id, Map<String, dynamic> data) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.check_circle, color: Colors.green, size: 24),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Confirmar Asistencia',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '¿Confirmas que asististe a esta cita?',
+              style: TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Especialista: ${data['especialista'] ?? data['doctor'] ?? 'N/A'}',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Fecha: ${data['fecha'] ?? 'N/A'}',
+                    style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+                  ),
+                  Text(
+                    'Hora: ${data['hora'] ?? 'N/A'}',
+                    style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text(
+              'Sí, confirmar asistencia',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await FirebaseFirestore.instance.collection('citas').doc(id).update({
+          'estado': 'completada',
+          'asistencia_confirmada': true,
+          'fecha_confirmacion': FieldValue.serverTimestamp(),
+          'updated_at': FieldValue.serverTimestamp(),
+        });
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text('¡Asistencia confirmada! La cita ha sido marcada como completada.'),
+                ],
+              ),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error al confirmar asistencia: $e')),
+          );
+        }
       }
     }
   }
@@ -229,11 +412,15 @@ class _AppointmentsListPageState extends State<AppointmentsListPage> {
                     final confirm = await showDialog<bool>(
                       context: context,
                       builder: (context) => AlertDialog(
-                        title: const Text('Eliminar cita'),
-                        content: const Text('¿Estás seguro que deseas eliminar esta cita?'),
+                        title: const Text('Cancelar cita'),
+                        content: const Text('¿Estás seguro que deseas cancelar esta cita?'),
                         actions: [
-                          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-                          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Eliminar')),
+                          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('No')),
+                          ElevatedButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                            child: const Text('Sí, cancelar', style: TextStyle(color: Colors.white)),
+                          ),
                         ],
                       ),
                     );
@@ -241,11 +428,15 @@ class _AppointmentsListPageState extends State<AppointmentsListPage> {
                     if (confirm != true) return false;
 
                     try {
-                      await FirebaseFirestore.instance.collection('citas').doc(id).delete();
-                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cita eliminada')));
+                      // Actualizar el estado a "cancelada" en lugar de eliminar
+                      await FirebaseFirestore.instance.collection('citas').doc(id).update({
+                        'estado': 'cancelada',
+                        'updated_at': FieldValue.serverTimestamp(),
+                      });
+                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cita cancelada')));
                       return true;
                     } catch (e) {
-                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error eliminando: $e')));
+                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al cancelar: $e')));
                       return false;
                     }
                   },
@@ -259,7 +450,7 @@ class _AppointmentsListPageState extends State<AppointmentsListPage> {
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     alignment: Alignment.centerRight,
                     decoration: BoxDecoration(color: Colors.red.shade600, borderRadius: BorderRadius.circular(12)),
-                    child: Row(mainAxisAlignment: MainAxisAlignment.end, children: const [Text('Eliminar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)), SizedBox(width: 8), Icon(Icons.delete, color: Colors.white)]),
+                    child: Row(mainAxisAlignment: MainAxisAlignment.end, children: const [Text('Cancelar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)), SizedBox(width: 8), Icon(Icons.cancel, color: Colors.white)]),
                   ),
                   child: Card(
                     margin: const EdgeInsets.only(bottom: 12),
@@ -275,40 +466,71 @@ class _AppointmentsListPageState extends State<AppointmentsListPage> {
                       },
                       child: Padding(
                         padding: const EdgeInsets.all(14),
-                        child: Row(
+                        child: Column(
                           children: [
-                            CircleAvatar(radius: 24, backgroundColor: Colors.blue.shade50, child: Icon(Icons.calendar_today, color: Colors.blue.shade700)),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(data['nombre'] ?? data['paciente'] ?? 'Cita', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                                  const SizedBox(height: 6),
-                                  Text('${data['fecha'] ?? data['fecha_formateada'] ?? ''} ${data['hora'] ?? data['hora_formateada'] ?? ''}', style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
-                                  if ((data['doctor'] ?? data['medico']) != null) ...[
-                                    const SizedBox(height: 6),
-                                    Text('Dr. ${data['doctor'] ?? data['medico']}', style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
-                                  ],
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.end,
+                            Row(
                               children: [
-                                Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(12)), child: Text(data['costo_consulta'] != null ? '\$${data['costo_consulta']}' : '', style: TextStyle(fontSize: 12, color: Colors.blue.shade700, fontWeight: FontWeight.w600))),
-                                const SizedBox(height: 8),
-                                (() {
-                                  try {
-                                    return _statusChip(data['estado'] ?? 'Pendiente');
-                                  } catch (_) {
-                                    return Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(8)), child: Text(data['estado'] ?? 'Pendiente', style: TextStyle(fontSize: 12, color: Colors.orange.shade700)));
-                                  }
-                                })(),
+                                CircleAvatar(radius: 24, backgroundColor: Colors.blue.shade50, child: Icon(Icons.calendar_today, color: Colors.blue.shade700)),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(data['nombre'] ?? data['paciente'] ?? 'Cita', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                                      const SizedBox(height: 6),
+                                      Text('${data['fecha'] ?? data['fecha_formateada'] ?? ''} ${data['hora'] ?? data['hora_formateada'] ?? ''}', style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+                                      if ((data['doctor'] ?? data['medico']) != null) ...[
+                                        const SizedBox(height: 6),
+                                        Text('Dr. ${data['doctor'] ?? data['medico']}', style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(12)), child: Text(data['costo_consulta'] != null ? '\$${data['costo_consulta']}' : '', style: TextStyle(fontSize: 12, color: Colors.blue.shade700, fontWeight: FontWeight.w600))),
+                                    const SizedBox(height: 8),
+                                    (() {
+                                      try {
+                                        return _statusChip(data['estado'] ?? 'Pendiente');
+                                      } catch (_) {
+                                        return Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(8)), child: Text(data['estado'] ?? 'Pendiente', style: TextStyle(fontSize: 12, color: Colors.orange.shade700)));
+                                      }
+                                    })(),
+                                  ],
+                                ),
                               ],
                             ),
+                            // Botón para confirmar asistencia si la cita ya pasó y está pendiente
+                            if (_shouldShowConfirmButton(data)) ...[
+                              const SizedBox(height: 12),
+                              const Divider(),
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: () => _confirmAttendance(context, id, data),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  icon: const Icon(Icons.check_circle, color: Colors.white),
+                                  label: const Text(
+                                    'Confirmar que asistí a la cita',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -373,14 +595,113 @@ class _AppointmentsListPageState extends State<AppointmentsListPage> {
                 ),
               ),
               const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(child: TextButton(onPressed: () => Navigator.pop(context), style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: const Text('Cerrar', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w600)))),
-                  const SizedBox(width: 12),
-                  Expanded(child: OutlinedButton.icon(onPressed: () async { Navigator.pop(context); await Navigator.push(context, MaterialPageRoute(builder: (_) => AppointmentPage(citaId: docId))); }, icon: const Icon(Icons.edit), label: const Text('Editar'))),
-                  const SizedBox(width: 12),
-                  Expanded(child: ElevatedButton.icon(onPressed: () async { Navigator.pop(context); await _confirmAndDelete(docId); }, style: ElevatedButton.styleFrom(backgroundColor: Colors.red), icon: const Icon(Icons.delete, color: Colors.white), label: const Text('Cancelar', style: TextStyle(color: Colors.white)))),
-                ],
+              // Mostrar botones según el estado de la cita
+              Builder(
+                builder: (context) {
+                  final estado = (cita['estado'] ?? 'pendiente').toString().toLowerCase();
+                  final isCompleted = estado == 'completada';
+                  final isCancelled = estado == 'cancelada';
+                  
+                  if (isCompleted || isCancelled) {
+                    // Si está completada o cancelada, solo mostrar cerrar y editar
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: const Text('Cerrar', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w600)),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () async {
+                              Navigator.pop(context);
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => AppointmentPage(citaId: docId)),
+                              );
+                            },
+                            icon: const Icon(Icons.edit),
+                            label: const Text('Editar'),
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+                  
+                  // Si está pendiente, mostrar todas las opciones
+                  return Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              child: const Text('Cerrar', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w600)),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () async {
+                                Navigator.pop(context);
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => AppointmentPage(citaId: docId)),
+                                );
+                              },
+                              icon: const Icon(Icons.edit),
+                              label: const Text('Editar'),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () async {
+                                Navigator.pop(context);
+                                await _markAsCompleted(docId);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                              icon: const Icon(Icons.check_circle, color: Colors.white),
+                              label: const Text('Completar', style: TextStyle(color: Colors.white)),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () async {
+                                Navigator.pop(context);
+                                await _confirmAndDelete(docId);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                              icon: const Icon(Icons.cancel, color: Colors.white),
+                              label: const Text('Cancelar', style: TextStyle(color: Colors.white)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+                },
               ),
             ],
           ),
