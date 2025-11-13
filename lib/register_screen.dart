@@ -21,6 +21,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  String _selectedRole = 'Paciente';
 
   // Estructura mejorada para Firestore
   Future<void> _registerUser() async {
@@ -46,7 +47,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'email': email,
           'telefono': _phoneController.text.trim(),
           'edad': int.tryParse(_ageController.text.trim()) ?? 0,
-          'tipo_usuario': 'paciente',
+          'rol': _selectedRole,
+          'tipo_usuario': _selectedRole.toLowerCase(),
           'fecha_registro': FieldValue.serverTimestamp(),
           'ultima_actualizacion': FieldValue.serverTimestamp(),
           'estado': 'activo',
@@ -298,6 +300,46 @@ class _RegisterScreenState extends State<RegisterScreen> {
               return 'Las contraseñas no coinciden';
             }
             return null;
+          },
+        ),
+        const SizedBox(height: 16),
+        // Selector de Rol
+        DropdownButtonFormField<String>(
+          value: _selectedRole,
+          decoration: InputDecoration(
+            prefixIcon: const Icon(Icons.person_outline, color: Color(0xFF0072FF)),
+            labelText: 'Rol',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade400),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade400),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF0072FF), width: 2),
+            ),
+            filled: true,
+            fillColor: Colors.white,
+          ),
+          items: const [
+            DropdownMenuItem(
+              value: 'Paciente',
+              child: Text('Paciente'),
+            ),
+            DropdownMenuItem(
+              value: 'Médico',
+              child: Text('Médico'),
+            ),
+          ],
+          onChanged: (value) {
+            if (value != null) {
+              setState(() {
+                _selectedRole = value;
+              });
+            }
           },
         ),
       ],

@@ -23,6 +23,7 @@ class _ProfileFormPageState extends State<ProfileFormPage> {
   bool _isLoading = false;
   String? _selectedGender;
   String? _selectedBloodType;
+  String _selectedRole = 'Paciente';
 
   final List<String> _genders = ['Masculino', 'Femenino', 'Otro'];
   final List<String> _bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
@@ -55,6 +56,7 @@ class _ProfileFormPageState extends State<ProfileFormPage> {
             medicationsController.text = data['medicamentos'] ?? '';
             _selectedGender = data['genero'];
             _selectedBloodType = data['tipo_sangre'];
+            _selectedRole = data['rol'] ?? 'Paciente';
           });
         }
       } catch (e) {
@@ -106,6 +108,11 @@ class _ProfileFormPageState extends State<ProfileFormPage> {
               _buildTextField(ageController, "Edad", Icons.cake, type: TextInputType.number),
               _buildTextField(phoneController, "Teléfono", Icons.phone),
               _buildTextField(addressController, "Dirección", Icons.location_on),
+              _buildDropdownField("Rol", _selectedRole, ['Paciente', 'Médico'], (value) {
+                if (value != null) {
+                  setState(() => _selectedRole = value);
+                }
+              }, Icons.person_outline),
               
               const SizedBox(height: 24),
               
@@ -309,6 +316,8 @@ class _ProfileFormPageState extends State<ProfileFormPage> {
         'direccion': addressController.text.trim(),
         'genero': _selectedGender,
         'tipo_sangre': _selectedBloodType,
+        'rol': _selectedRole,
+        'tipo_usuario': _selectedRole.toLowerCase(),
         'condiciones_medicas': medicalConditionsController.text.trim(),
         'alergias': allergiesController.text.trim(),
         'medicamentos': medicationsController.text.trim(),

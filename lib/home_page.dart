@@ -97,6 +97,7 @@ class _HomeContentState extends State<_HomeContent> {
   bool _isLoading = true;
   int _doctorsCount = 0;
   int _tipsCount = 0;
+  String _userRole = 'Paciente';
 
   @override
   void initState() {
@@ -148,11 +149,13 @@ class _HomeContentState extends State<_HomeContent> {
           final data = doc.data()!;
           if (mounted) setState(() {
             _userName = data['nombre_completo'] ?? user.displayName ?? user.email ?? "Usuario";
+            _userRole = data['rol'] ?? 'Paciente';
             _isLoading = false;
           });
         } else {
           if (mounted) setState(() {
             _userName = user.displayName ?? user.email ?? "Usuario";
+            _userRole = 'Paciente';
             _isLoading = false;
           });
         }
@@ -280,20 +283,38 @@ class _HomeContentState extends State<_HomeContent> {
           spacing: 12,
           runSpacing: 12,
           children: [
-            _ActionCard(
-              icon: Icons.calendar_month,
-              title: "Agendar Cita",
-              color: const Color(0xFF0072FF),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const AppointmentPage()),
-                );
-              },
-              onLongPress: () {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mantén presionado para limpiar al editar citas')));
-              },
-            ),
+            // Si es Paciente: mostrar "Agendar Cita"
+            // Si es Médico: mostrar "Ver Citas" (Dashboard)
+            if (_userRole == 'Paciente')
+              _ActionCard(
+                icon: Icons.calendar_month,
+                title: "Agendar Cita",
+                color: const Color(0xFF0072FF),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const AppointmentPage()),
+                  );
+                },
+                onLongPress: () {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mantén presionado para limpiar al editar citas')));
+                },
+              )
+            else
+              _ActionCard(
+                icon: Icons.dashboard,
+                title: "Ver Citas",
+                color: const Color(0xFF0072FF),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const DashboardPage()),
+                  );
+                },
+                onLongPress: () {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Dashboard con estadísticas en tiempo real')));
+                },
+              ),
             _ActionCard(
               icon: Icons.medical_services,
               title: "Ver Doctores",

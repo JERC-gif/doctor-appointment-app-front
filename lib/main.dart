@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
 import 'register_screen.dart';
 import 'home_page.dart';
@@ -66,6 +67,7 @@ class _LoginPageState extends State<LoginPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   bool _loading = false;
+  String _selectedRole = 'Paciente';
 
   @override
   Widget build(BuildContext context) {
@@ -151,6 +153,35 @@ class _LoginPageState extends State<LoginPage> {
                           return null;
                         },
                       ),
+                      const SizedBox(height: 16),
+                      // Selector de Rol
+                      DropdownButtonFormField<String>(
+                        value: _selectedRole,
+                        decoration: InputDecoration(
+                          prefixIcon: const Icon(Icons.person_outline),
+                          labelText: "Rol",
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'Paciente',
+                            child: Text('Paciente'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Médico',
+                            child: Text('Médico'),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() {
+                              _selectedRole = value;
+                            });
+                          }
+                        },
+                      ),
                       const SizedBox(height: 12),
                       Align(
                         alignment: Alignment.centerRight,
@@ -184,11 +215,28 @@ class _LoginPageState extends State<LoginPage> {
                                   if (_formKey.currentState!.validate()) {
                                     setState(() => _loading = true);
                                     try {
-                                      await _auth.signInWithEmailAndPassword(
+                                      final credential = await _auth.signInWithEmailAndPassword(
                                         email: emailController.text.trim(),
                                         password:
                                             passwordController.text.trim(),
                                       );
+
+                                      // Actualizar el rol del usuario en Firestore si no existe
+                                      if (credential.user != null) {
+                                        final userDoc = await FirebaseFirestore.instance
+                                            .collection('usuarios')
+                                            .doc(credential.user!.uid)
+                                            .get();
+                                        
+                                        if (!userDoc.exists || userDoc.data()?['rol'] == null) {
+                                          await FirebaseFirestore.instance
+                                              .collection('usuarios')
+                                              .doc(credential.user!.uid)
+                                              .set({
+                                            'rol': _selectedRole,
+                                          }, SetOptions(merge: true));
+                                        }
+                                      }
 
                                       // Si inicia sesión correctamente, va al HomePage
                                       if (context.mounted) {
