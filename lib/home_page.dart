@@ -283,28 +283,27 @@ class _HomeContentState extends State<_HomeContent> {
           spacing: 12,
           runSpacing: 12,
           children: [
-            // Si es Paciente: mostrar "Agendar Cita"
-            // Si es Médico: mostrar "Ver Citas" (Dashboard)
-            if (_userRole == 'Paciente')
-              _ActionCard(
-                icon: Icons.calendar_month,
-                title: "Agendar Cita",
-                color: const Color(0xFF0072FF),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const AppointmentPage()),
-                  );
-                },
-                onLongPress: () {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mantén presionado para limpiar al editar citas')));
-                },
-              )
-            else
+            // Botón "Agendar Cita" siempre visible para todos los usuarios
+            _ActionCard(
+              icon: Icons.calendar_month,
+              title: "Agendar Cita",
+              color: const Color(0xFF0072FF),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AppointmentPage()),
+                );
+              },
+              onLongPress: () {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mantén presionado para limpiar al editar citas')));
+              },
+            ),
+            // Si es Médico: mostrar también "Ver Citas" (Dashboard)
+            if (_userRole == 'Médico')
               _ActionCard(
                 icon: Icons.dashboard,
                 title: "Ver Citas",
-                color: const Color(0xFF0072FF),
+                color: Colors.purple,
                 onTap: () {
                   Navigator.push(
                     context,

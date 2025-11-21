@@ -360,6 +360,20 @@ class _AppointmentsListPageState extends State<AppointmentsListPage> {
           ),
         ),
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AppointmentPage()),
+          );
+        },
+        backgroundColor: const Color(0xFF0072FF),
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text(
+          'Nueva Cita',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+      ),
       body: StreamBuilder<QuerySnapshot>(
         stream: _getAppointments(),
         builder: (context, snapshot) {
@@ -777,13 +791,38 @@ class _AppointmentsListPageState extends State<AppointmentsListPage> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Crea tu primera reserva desde “Agendar Cita”.',
+                    'Crea tu primera reserva ahora mismo.',
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.grey.shade600,
                       height: 1.5,
                     ),
                     textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const AppointmentPage()),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0072FF),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon: const Icon(Icons.add_circle_outline, color: Colors.white),
+                    label: const Text(
+                      'Agendar Cita',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ],
               ),
